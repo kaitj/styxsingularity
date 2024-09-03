@@ -63,8 +63,7 @@ class _SingularityExecution(Execution):
     ) -> None:
         """Create SingularityExecution."""
         self.logger: logging.Logger = logger
-        self.input_files: list[tuple[pl.Path, str]] = []
-        self.input_file_next_id = 0
+        self.input_paths: set[tuple[pl.Path, str]] = set()
         self.output_files: list[tuple[pl.Path, str]] = []
         self.output_file_next_id = 0
         self.output_dir = output_dir
@@ -74,11 +73,11 @@ class _SingularityExecution(Execution):
         self.environ = environ
 
     def input_file(self, host_file: InputPathType) -> str:
-        """Resolve input file."""
-        _host_file = pl.Path(host_file)
-        local_file = f"/styx_input/{self.input_file_next_id}/{_host_file.name}"
-        self.input_file_next_id += 1
-        self.input_files.append((_host_file, local_file))
+        """Resolve input directory and file."""
+        _host_path = pl.Path(host_file).parent
+        local_path = f"/styx_input/{_host_path}"
+        local_file = f"{local_path}/{_host_path.name}"
+        self.input_paths.add((_host_path, local_path))
         return local_file
 
     def output_file(self, local_file: str, optional: bool = False) -> OutputPathType:
@@ -89,11 +88,11 @@ class _SingularityExecution(Execution):
         """Execute."""
         mounts: list[str] = []
 
-        for i, (host_file, local_file) in enumerate(self.input_files):
+        for i, (host_path, local_path) in enumerate(self.input_paths):
             mounts.append("--bind")
             mounts.append(
                 _singularity_mount(
-                    host_file.absolute().as_posix(), local_file, readonly=True
+                    host_path.absolute().as_posix(), local_path, readonly=True
                 )
             )
 
